@@ -107,12 +107,6 @@ func main() {
 	     if ((day-1)>1) {
         	fmt.Printf("I should add new rows new VERSION: %d \n", (day-1)) 
 	     }
-             if (math.Abs(differencialDate)>1) {
-                if (math.Abs(differencialDate) > 10) {
-			differencialDate = math.Abs(differencialDate) - 69
-        	        fmt.Printf("I should add new rows: %2f \n", math.Abs(differencialDate)) 
-		}
-             }
  	}
 
 	if err != nil {
