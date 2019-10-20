@@ -11,6 +11,7 @@ import (
 )
 
 func diff(a, b time.Time) (year, month, day, hour, min, sec int) {
+/*	https://www.socketloop.com/tutorials/golang-minus-time-with-time-add-or-time-adddate-functions-to-calculate-past-date */
 	if a.Location() != b.Location() {
 		b = b.In(a.Location())
 	}
@@ -62,73 +63,86 @@ func Date(year, month, day int) time.Time {
     return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 }
 
-func main() {
-    csvfile, err := os.Open("ConscotizaWITHOUTHEADER.csv")
-   
+func isFirstRow(index int) bool {
+    return index!=0
+}
+
+func initializeFromInput(row []string) time.Time {
+    year, err := strconv.Atoi(row[2]) 
+    day, err := strconv.Atoi(row[4])
+    month, err:= strconv.Atoi(row[3])
     if err != nil {
-	    log.Fatalln("could not open the file", err)
+        log.Fatalln("could not cast vars", err)
+    }
+    return Date(day, month, year)
+}
+func thereIsAGapBetweenDates(previosDate time.Time, cDate time.Time) bool {
+    year, month, day, hour, min, sec := diff(previosDate, cDate)
+    fmt.Printf("COMPARING Cdate sub pdate: %d Years %d Months %d Days %d hours %d min %d secs\n", year, month, day, hour, min, sec)
+    /* get Yesterday time.Now().AddDate(0, 0, -1) */
+    return (day-1)>1
+}
+func getDaysOfSubtractionBetween(a time.Time, b time.Time) int {
+    if a.After(b) {
+        a, b = b, a
+    }
+    d1 := a.Day()
+    d2 := b.Day()
+    return int(d2 - d1)
+}
+
+func main() {
+    var value []string
+    var cDate time.Time
+    var previosDate time.Time
+
+    csvfileInput, err := os.Open("ConscotizaWITHOUTHEADER.csv")
+
+    csvfileOutput, err := os.Create("filledDates.csv")
+    writer := csv.NewWriter(csvfileOutput)
+    defer csvfileOutput.Close() 
+    defer writer.Flush() 
+    
+    if err != nil {
+        log.Fatalln("could not open the file", err)
     }
 
-    r := csv.NewReader(csvfile)
+    r := csv.NewReader(csvfileInput)
     indexRow := 0
-    nextPreviousDate := 0.0
-    var cDate time.Time
-    var pDate time.Time
-    var year int
-    var month int
-    var day int
 
     for {
         record, err := r.Read()
 	if err == io.EOF {
 	    break
 	}
-
-
-        currentDate, err := strconv.ParseFloat(record[0], 64)
-
-	year, err = strconv.Atoi(record[2]) 
-	day, err= strconv.Atoi(record[4])
-	month, err= strconv.Atoi(record[3])
-	cDate = Date(day, month, year)
-
+	cDate = initializeFromInput(record)
         fmt.Printf("Current Row %s \n", record[0])
-        fmt.Printf("COMPARING Previous vs Current | Previous: %2f Current %2f\n", nextPreviousDate, currentDate)
-        /* fmt.Printf("COMPARING Previous vs Current Date Format | Previous: %s Current %s\n", pDate.Format("2006 01 02"), cDate.Format("2006 01 02")) */
-        fmt.Printf("COMPARING Previous vs Current Date Format | Previous: %s Current %s\n", pDate.String(), cDate.String())
+        fmt.Printf("COMPARING Previous vs Current Date Format | Previous: %s Current %s\n", previosDate.String(), cDate.String())
 
-	if (indexRow!=0) {
-	     year, month, day, hour, min, sec := diff(pDate, cDate)
-             fmt.Printf("COMPARING Cdate sub pdate: %d Years %d Months %d Days %d hours %d min %d secs\n", year, month, day, hour, min, sec)
-
-	     if ((day-1)>1) {
-        	fmt.Printf("I should add new rows new VERSION: %d \n", (day-1)) 
-		/* TOdO get previous row and save as a new one*/
-		/* TOdO write new csv file*/
+	if (isFirstRow(indexRow)) {
+	     if (thereIsAGapBetweenDates(previosDate, cDate)) {
+		day := getDaysOfSubtractionBetween(previosDate, cDate)
+                fmt.Printf("I should add new rows new VERSION: %d \n", (day-1)) 
 
 		var newTmp [10] time.Time
 		var prevTmp time.Time
-
-		prevTmp = pDate
+		prevTmp = previosDate
 
 		for i := 0; i < (day -1); i++ {
-        	     fmt.Printf("New pDate Date: %s \n", (pDate.String())) 
 		     newTmp[i] = prevTmp.AddDate(0, 0, 1)
-        	     fmt.Printf("New Tmp Date: %s \n", (newTmp[i].String())) 
 		     prevTmp = newTmp[i]
-        	     fmt.Printf("New PREVTmp Date: %s \n", (prevTmp.String())) 
+	             value = []string{newTmp[i].String(),record[0], record[5], record[6]}
+		     writer.Write(value)
 		}
 	     }
  	}
 
-	if err != nil {
-            log.Fatal(err)
-	}
-	nextPreviousDate = currentDate
-	pDate = Date(day, month, year)
-	indexRow ++
-	fmt.Printf("NEW nextPreviousDate: %2f \n", nextPreviousDate)
+	value := []string{cDate.String(), record[0], record[5], record[6]}
+	writer.Write(value)
+	fmt.Printf("=========SAVING IN FILE =============================\n")
+	previosDate = cDate
+	indexRow++
+	fmt.Printf("NEW nextPreviousDate: %s \n", cDate.String())
 	fmt.Printf("=====================================================\n")
     }
-    fmt.Printf("FINAL VALUE nextPreviousDate %f \n", nextPreviousDate)
 }
